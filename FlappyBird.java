@@ -1,6 +1,5 @@
 import java.awt.*;
 import java.awt.event.*;
-import java.io.*;
 import java.util.ArrayList;
 import java.util.Random;
 import javax.sound.sampled.*;
@@ -19,6 +18,7 @@ public class FlappyBird extends JPanel implements ActionListener, KeyListener {
 
     private Timer gameTimer;
     private ArrayList<Rectangle> pipes;
+    private ArrayList<Rectangle> scoredPipes;
     private int birdX = WIDTH / 4;
     private int birdY = HEIGHT / 2;
     private int birdWidth = 34;
@@ -45,6 +45,7 @@ public class FlappyBird extends JPanel implements ActionListener, KeyListener {
         pipeDownImg = new ImageIcon(getClass().getResource("pipe2down.png")).getImage();
 
         pipes = new ArrayList<>();
+        scoredPipes = new ArrayList<>(); 
         rand = new Random();
 
         setLayout(null);
@@ -58,16 +59,21 @@ public class FlappyBird extends JPanel implements ActionListener, KeyListener {
         gameStarted = true;
         startButton.setVisible(false);
         pipes.clear();
+        scoredPipes.clear();
         addPipe();
         addPipe();
-        playBackgroundMusic("Backsong.wav");
+        playBackgroundMusic("/Backsong.wav");
         gameTimer = new Timer(16, this);
         gameTimer.start();
     }
 
     private void playBackgroundMusic(String filePath) {
         try {
-            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(new File(filePath));
+            if (backgroundClip != null && backgroundClip.isOpen()) {
+                backgroundClip.stop();
+                backgroundClip.close();
+            }
+            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(getClass().getResource(filePath));
             backgroundClip = AudioSystem.getClip();
             backgroundClip.open(audioInputStream);
             backgroundClip.loop(Clip.LOOP_CONTINUOUSLY);
@@ -78,7 +84,10 @@ public class FlappyBird extends JPanel implements ActionListener, KeyListener {
 
     private void playDieSound(String filePath) {
         try {
-            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(new File(filePath));
+            if (dieClip != null && dieClip.isRunning()) {
+                return;
+            }
+            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(getClass().getResource(filePath));
             dieClip = AudioSystem.getClip();
             dieClip.open(audioInputStream);
             dieClip.start();
@@ -111,10 +120,8 @@ public class FlappyBird extends JPanel implements ActionListener, KeyListener {
 
         for (Rectangle pipe : pipes) {
             if (pipe.y < 0) {
-
                 g.drawImage(pipeUpImg, pipe.x, pipe.y, pipe.width, pipe.height, null);
             } else {
-
                 g.drawImage(pipeDownImg, pipe.x, pipe.y, pipe.width, pipe.height, null);
             }
         }
@@ -148,8 +155,10 @@ public class FlappyBird extends JPanel implements ActionListener, KeyListener {
         birdY += velocity;
 
         if (birdY >= HEIGHT - birdHeight) {
-            gameOver = true;
-            playDieSound("Die.wav");
+            if (!gameOver) {
+                gameOver = true;
+                playDieSound("/Die.wav");
+            }
         }
     }
 
@@ -169,20 +178,28 @@ public class FlappyBird extends JPanel implements ActionListener, KeyListener {
     }
 
     private void checkCollision() {
+        Rectangle birdRect = new Rectangle(birdX, birdY, birdWidth, birdHeight);
+
         for (Rectangle pipe : pipes) {
-            if (pipe.intersects(new Rectangle(birdX, birdY, birdWidth, birdHeight))) {
-                gameOver = true;
-                playDieSound("Die.wav");
+            if (pipe.intersects(birdRect)) {
+                if (!gameOver) {
+                    gameOver = true;
+                    playDieSound("/Die.wav");
+                }
             }
 
-            if (!gameOver && pipe.x + PIPE_WIDTH < birdX && pipe.y > 0) {
+        
+            if (!gameOver && pipe.y > 0 && pipe.x + PIPE_WIDTH < birdX && !scoredPipes.contains(pipe)) {
                 score++;
+                scoredPipes.add(pipe);
             }
         }
 
-        if (birdY <= 0) {
-            gameOver = true;
-            playDieSound("Die.wav");
+        if (birdY <= 0 || birdY >= HEIGHT - birdHeight) {
+            if (!gameOver) {
+                gameOver = true;
+                playDieSound("/Die.wav");
+            }
         }
     }
 
@@ -202,11 +219,17 @@ public class FlappyBird extends JPanel implements ActionListener, KeyListener {
     private void resetGame() {
         birdY = HEIGHT / 2;
         pipes.clear();
+        scoredPipes.clear(); 
         addPipe();
         addPipe();
         velocity = 0;
         score = 0;
         gameOver = false;
+
+        if (backgroundClip != null) {
+            backgroundClip.setFramePosition(0);
+            backgroundClip.loop(Clip.LOOP_CONTINUOUSLY);
+        }
     }
 
     @Override
@@ -216,4 +239,5 @@ public class FlappyBird extends JPanel implements ActionListener, KeyListener {
     @Override
     public void keyTyped(KeyEvent e) {
     }
+
 }
